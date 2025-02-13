@@ -420,7 +420,7 @@ public final class SingleRequest<R> implements Request, SizeReadyCallback, Resou
   private Drawable loadDrawable(@DrawableRes int resourceId) {
     Theme theme =
         requestOptions.getTheme() != null ? requestOptions.getTheme() : context.getTheme();
-    return DrawableDecoderCompat.getDrawable(glideContext, resourceId, theme);
+    return DrawableDecoderCompat.getDrawable(context, resourceId, theme);
   }
 
   @GuardedBy("requestLock")
@@ -523,14 +523,14 @@ public final class SingleRequest<R> implements Request, SizeReadyCallback, Resou
   }
 
   @GuardedBy("requestLock")
-  private void notifyLoadSuccess() {
+  private void notifyRequestCoordinatorLoadSucceeded() {
     if (requestCoordinator != null) {
       requestCoordinator.onRequestSuccess(this);
     }
   }
 
   @GuardedBy("requestLock")
-  private void notifyLoadFailed() {
+  private void notifyRequestCoordinatorLoadFailed() {
     if (requestCoordinator != null) {
       requestCoordinator.onRequestFailed(this);
     }
@@ -639,6 +639,8 @@ public final class SingleRequest<R> implements Request, SizeReadyCallback, Resou
               + " ms");
     }
 
+    notifyRequestCoordinatorLoadSucceeded();
+
     isCallingCallbacks = true;
     try {
       boolean anyListenerHandledUpdatingTarget = false;
@@ -646,6 +648,14 @@ public final class SingleRequest<R> implements Request, SizeReadyCallback, Resou
         for (RequestListener<R> listener : requestListeners) {
           anyListenerHandledUpdatingTarget |=
               listener.onResourceReady(result, model, target, dataSource, isFirstResource);
+
+          if (listener instanceof ExperimentalRequestListener) {
+            ExperimentalRequestListener<R> experimentalRequestListener =
+                (ExperimentalRequestListener<R>) listener;
+            anyListenerHandledUpdatingTarget |=
+                experimentalRequestListener.onResourceReady(
+                    result, model, target, dataSource, isFirstResource, isAlternateCacheKey);
+          }
         }
       }
       anyListenerHandledUpdatingTarget |=
@@ -660,7 +670,6 @@ public final class SingleRequest<R> implements Request, SizeReadyCallback, Resou
       isCallingCallbacks = false;
     }
 
-    notifyLoadSuccess();
     GlideTrace.endSectionAsync(TAG, cookie);
   }
 
@@ -694,6 +703,8 @@ public final class SingleRequest<R> implements Request, SizeReadyCallback, Resou
       loadStatus = null;
       status = Status.FAILED;
 
+      notifyRequestCoordinatorLoadFailed();
+
       isCallingCallbacks = true;
       try {
         // TODO: what if this is a thumbnail request?
@@ -715,7 +726,6 @@ public final class SingleRequest<R> implements Request, SizeReadyCallback, Resou
         isCallingCallbacks = false;
       }
 
-      notifyLoadFailed();
       GlideTrace.endSectionAsync(TAG, cookie);
     }
   }
@@ -768,7 +778,7 @@ public final class SingleRequest<R> implements Request, SizeReadyCallback, Resou
         && localOverrideHeight == otherLocalOverrideHeight
         && Util.bothModelsNullEquivalentOrEquals(localModel, otherLocalModel)
         && localTranscodeClass.equals(otherLocalTranscodeClass)
-        && localRequestOptions.equals(otherLocalRequestOptions)
+        && Util.bothBaseRequestOptionsNullEquivalentOrEquals(localRequestOptions, otherLocalRequestOptions)
         && localPriority == otherLocalPriority
         // We do not want to require that RequestListeners implement equals/hashcode, so we
         // don't compare them using equals(). We can however, at least assert that the same

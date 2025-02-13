@@ -8,6 +8,7 @@ import android.os.Looper;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import com.bumptech.glide.load.model.Model;
+import com.bumptech.glide.request.BaseRequestOptions;
 import com.bumptech.glide.request.target.Target;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -133,12 +134,15 @@ public final class Util {
     return bytesPerPixel;
   }
 
-  /** Returns true if width and height are both > 0 and/or equal to {@link Target#SIZE_ORIGINAL}. */
+  /**
+   * Returns {@code true} if {@code width} and {@code height} are both {@code > 0} and/or equal to
+   * {@link Target#SIZE_ORIGINAL}.
+   */
   public static boolean isValidDimensions(int width, int height) {
     return isValidDimension(width) && isValidDimension(height);
   }
 
-  private static boolean isValidDimension(int dimen) {
+  public static boolean isValidDimension(int dimen) {
     return dimen > 0 || dimen == Target.SIZE_ORIGINAL;
   }
 
@@ -235,6 +239,16 @@ public final class Util {
       return ((Model) a).isEquivalentTo(b);
     }
     return a.equals(b);
+  }
+
+  public static boolean bothBaseRequestOptionsNullEquivalentOrEquals(
+      @Nullable BaseRequestOptions<?> a,
+      @Nullable BaseRequestOptions<?> b
+  ) {
+    if (a == null) {
+      return b == null;
+    }
+    return a.isEquivalentTo(b);
   }
 
   public static int hashCode(int value) {
